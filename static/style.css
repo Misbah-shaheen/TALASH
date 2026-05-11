@@ -1,0 +1,132 @@
+body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.page {
+    display: none;
+}
+
+.page.active {
+    display: block;
+}
+
+.badge-hire {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.badge-shortlist {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.badge-review {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.badge-reject {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.badge-pending {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.score-bar-wrap {
+    height: 6px;
+    border-radius: 3px;
+    background: #e5e7eb;
+    overflow: hidden;
+}
+
+.score-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+}
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.5);
+    z-index: 50;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-overlay.open {
+    display: flex;
+}
+
+.modal-box {
+    background: #fff;
+    border-radius: 1rem;
+    max-width: 900px;
+    width: 96%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.tab-btn {
+    padding: .5rem 1rem;
+    border-bottom: 2px solid transparent;
+    font-size: .85rem;
+    color: #6b7280;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.tab-btn.active {
+    border-color: #4f46e5;
+    color: #4f46e5;
+    font-weight: 600;
+}
+
+.tab-panel {
+    display: none;
+}
+
+.tab-panel.active {
+    display: block;
+}
+
+.upload-zone {
+    border: 2px dashed #a5b4fc;
+    border-radius: .75rem;
+    cursor: pointer;
+    transition: background .2s;
+}
+
+.upload-zone:hover,
+.upload-zone.drag {
+    background: #eef2ff;
+}
+
+.progress-bar {
+    height: 8px;
+    border-radius: 4px;
+    background: #e5e7eb;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: #4f46e5;
+    transition: width .4s;
+}
+
+.nav-btn {
+    padding: .4rem .9rem;
+    border-radius: .5rem;
+    font-size: .875rem;
+    font-weight: 500;
+    transition: background .15s;
+}
+
+.nav-btn.active {
+    background: rgba(255,255,255,.2);
+}

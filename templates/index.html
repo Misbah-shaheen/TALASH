@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TALASH – Smart HR Recruitment System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Segoe UI', system-ui, sans-serif; }
+        .page { display: none; }
+        .page.active { display: block; }
+        .badge-hire       { background:#dcfce7; color:#166534; }
+        .badge-shortlist  { background:#dbeafe; color:#1e40af; }
+        .badge-reject     { background:#fee2e2; color:#991b1b; }
+        .badge-pending    { background:#f3f4f6; color:#374151; }
+        .score-bar-wrap   { height:6px; border-radius:3px; background:#e5e7eb; overflow:hidden; }
+        .score-bar-fill   { height:100%; border-radius:3px; }
+        .modal-overlay    { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:50; display:none; align-items:center; justify-content:center; }
+        .modal-overlay.open { display:flex; }
+        .modal-box        { background:#fff; border-radius:1rem; max-width:960px; width:96%; max-height:90vh; overflow-y:auto; }
+        .tab-btn          { padding:.5rem 1rem; border-bottom:2px solid transparent; font-size:.85rem; color:#6b7280; cursor:pointer; white-space:nowrap; }
+        .tab-btn.active   { border-color:#4f46e5; color:#4f46e5; font-weight:600; }
+        .tab-panel        { display:none; }
+        .tab-panel.active { display:block; }
+        .upload-zone      { border:2px dashed #a5b4fc; border-radius:.75rem; cursor:pointer; transition:background .2s; }
+        .upload-zone:hover, .upload-zone.drag { background:#eef2ff; }
+        .progress-bar     { height:8px; border-radius:4px; background:#e5e7eb; overflow:hidden; }
+        .progress-fill    { height:100%; border-radius:4px; background:#4f46e5; transition:width .4s; }
+        .nav-btn          { padding:.4rem .9rem; border-radius:.5rem; font-size:.875rem; font-weight:500; transition:background .15s; }
+        .nav-btn.active   { background:rgba(255,255,255,.2); }
+        .email-box        { background:#f8fafc; border:1px solid #e2e8f0; border-radius:.5rem; padding:1rem; font-size:.8rem; font-family:monospace; white-space:pre-wrap; max-height:260px; overflow-y:auto; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+<!-- NAV -->
+<nav class="bg-indigo-700 text-white shadow-lg sticky top-0 z-40">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+    <div class="flex items-center gap-3">
+      <i class="fas fa-robot text-2xl text-indigo-200"></i>
+      <div>
+        <span class="text-lg font-bold tracking-tight">TALASH</span>
+        <span class="hidden md:inline text-xs text-indigo-300 ml-2">Talent Acquisition &amp; Learning Automation for Smart Hiring</span>
+      </div>
+    </div>
+    <div class="flex gap-1 items-center flex-wrap">
+      <button onclick="navTo('dashboard')"  id="nav-dashboard"  class="nav-btn active hover:bg-white/10"><i class="fas fa-chart-pie mr-1"></i>Dashboard</button>
+      <button onclick="navTo('candidates')" id="nav-candidates" class="nav-btn hover:bg-white/10"><i class="fas fa-users mr-1"></i>Candidates</button>
+      <button onclick="navTo('rankings')"   id="nav-rankings"   class="nav-btn hover:bg-white/10"><i class="fas fa-trophy mr-1"></i>Rankings</button>
+      <button onclick="navTo('upload')"     id="nav-upload"     class="nav-btn hover:bg-white/10"><i class="fas fa-upload mr-1"></i>Upload CVs</button>
+      <button onclick="exportExcel()" class="nav-btn bg-emerald-600 hover:bg-emerald-700 ml-2"><i class="fas fa-file-excel mr-1"></i>Export</button>
+    </div>
+  </div>
+</nav>
+
+<div class="max-w-7xl mx-auto px-4 py-6">
+
+<!-- DASHBOARD -->
+<div id="dashboardPage" class="page active">
+  <div class="flex justify-between items-center mb-5">
+    <h1 class="text-2xl font-bold text-gray-800"><i class="fas fa-chart-pie text-indigo-500 mr-2"></i>Recruitment Dashboard</h1>
+    <button onclick="loadDashboard()" class="text-sm text-indigo-600 hover:underline"><i class="fas fa-sync mr-1"></i>Refresh</button>
+  </div>
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" id="statsCards">
+    <div class="bg-white rounded-xl h-24 animate-pulse"></div><div class="bg-white rounded-xl h-24 animate-pulse"></div>
+    <div class="bg-white rounded-xl h-24 animate-pulse"></div><div class="bg-white rounded-xl h-24 animate-pulse"></div>
+  </div>
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <div class="bg-white rounded-xl shadow p-5 lg:col-span-2">
+      <h2 class="font-semibold text-gray-700 mb-3"><i class="fas fa-chart-bar text-indigo-400 mr-2"></i>Top 10 Candidates – Overall Score</h2>
+      <canvas id="barChart" height="120"></canvas>
+    </div>
+    <div class="bg-white rounded-xl shadow p-5">
+      <h2 class="font-semibold text-gray-700 mb-3"><i class="fas fa-chart-pie text-indigo-400 mr-2"></i>Recommendation Split</h2>
+      <canvas id="pieChart" height="160"></canvas>
+      <div id="pieLegend" class="mt-3 text-sm space-y-1"></div>
+    </div>
+  </div>
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-white rounded-xl shadow p-5">
+      <h2 class="font-semibold text-gray-700 mb-3"><i class="fas fa-star text-amber-400 mr-2"></i>Top Candidates</h2>
+      <div id="topCandidatesList" class="space-y-2"></div>
+    </div>
+    <div class="bg-white rounded-xl shadow p-5">
+      <h2 class="font-semibold text-gray-700 mb-3"><i class="fas fa-book text-indigo-400 mr-2"></i>Publication Breakdown</h2>
+      <canvas id="pubChart" height="180"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- CANDIDATES -->
+<div id="candidatesPage" class="page">
+  <div class="flex flex-wrap justify-between items-center mb-4 gap-3">
+    <h1 class="text-2xl font-bold text-gray-800"><i class="fas fa-users text-indigo-500 mr-2"></i>All Candidates</h1>
+    <div class="flex gap-2 flex-wrap">
+      <input id="searchInput" oninput="searchCandidates()" placeholder="Search name / post…"
+        class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-52 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+      <select id="filterRec" onchange="searchCandidates()" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none">
+        <option value="">All</option><option>Hire</option><option>Shortlist</option><option>Review</option><option>Reject</option><option>Pending</option>
+      </select>
+      <!-- BULK MISSING EMAILS BUTTON -->
+      <button onclick="bulkMissingEmails()" id="bulkEmailBtn"
+        class="bg-amber-500 text-white text-sm px-3 py-2 rounded-lg hover:bg-amber-600 flex items-center gap-1">
+        <i class="fas fa-envelope-open-text"></i><span class="hidden sm:inline">Bulk Missing Emails</span>
+      </button>
+      <button onclick="exportCsv()" class="bg-emerald-600 text-white text-sm px-3 py-2 rounded-lg hover:bg-emerald-700">
+        <i class="fas fa-file-csv mr-1"></i>CSV
+      </button>
+    </div>
+  </div>
+  <!-- Bulk email result panel -->
+  <div id="bulkEmailResult" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 text-sm"></div>
+  <div class="bg-white rounded-xl shadow overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-200">
+        <tr>
+          <th class="p-3 text-left cursor-pointer hover:text-indigo-600" onclick="sortCandidates('name')">Name <i class="fas fa-sort text-gray-300 ml-1"></i></th>
+          <th class="p-3 text-left">Post</th>
+          <th class="p-3 text-center cursor-pointer hover:text-indigo-600" onclick="sortCandidates('overall_score')">Score <i class="fas fa-sort text-gray-300 ml-1"></i></th>
+          <th class="p-3 text-center cursor-pointer hover:text-indigo-600" onclick="sortCandidates('education_score')">Edu</th>
+          <th class="p-3 text-center cursor-pointer hover:text-indigo-600" onclick="sortCandidates('research_score')">Research</th>
+          <th class="p-3 text-center cursor-pointer hover:text-indigo-600" onclick="sortCandidates('experience_years')">Exp</th>
+          <th class="p-3 text-center cursor-pointer hover:text-indigo-600" onclick="sortCandidates('publications')">Pubs</th>
+          <th class="p-3 text-center">PhD</th>
+          <th class="p-3 text-center">Status</th>
+          <th class="p-3 text-center">Detail</th>
+        </tr>
+      </thead>
+      <tbody id="candidatesTable">
+        <tr><td colspan="10" class="p-8 text-center text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i>Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div id="candidatesPager" class="mt-2 text-sm text-gray-400 text-right"></div>
+</div>
+
+<!-- RANKINGS -->
+<div id="rankingsPage" class="page">
+  <div class="flex justify-between items-center mb-4">
+    <h1 class="text-2xl font-bold text-gray-800"><i class="fas fa-trophy text-amber-500 mr-2"></i>Candidate Rankings</h1>
+    <button onclick="loadRankings()" class="text-sm text-indigo-600 hover:underline"><i class="fas fa-sync mr-1"></i>Refresh</button>
+  </div>
+  <div class="bg-white rounded-xl shadow overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-200">
+        <tr>
+          <th class="p-3 text-center w-12">Rank</th>
+          <th class="p-3 text-left">Name</th>
+          <th class="p-3 text-center">Score</th>
+          <th class="p-3 text-center">Edu</th>
+          <th class="p-3 text-center">Research</th>
+          <th class="p-3 text-center">Skills</th>
+          <th class="p-3 text-center">Pubs</th>
+          <th class="p-3 text-center">Patents</th>
+          <th class="p-3 text-left">Topic</th>
+          <th class="p-3 text-center">Status</th>
+          <th class="p-3 text-center">Detail</th>
+        </tr>
+      </thead>
+      <tbody id="rankingsTable">
+        <tr><td colspan="11" class="p-8 text-center text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i>Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- UPLOAD -->
+<div id="uploadPage" class="page">
+  <h1 class="text-2xl font-bold text-gray-800 mb-6"><i class="fas fa-upload text-indigo-500 mr-2"></i>Upload CVs &amp; Process</h1>
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-white rounded-xl shadow p-6">
+      <h2 class="font-semibold text-gray-700 mb-4">Step 1 — Upload PDF Files</h2>
+      <div id="dropZone" class="upload-zone p-10 text-center mb-4"
+           ondragover="event.preventDefault();this.classList.add('drag')"
+           ondragleave="this.classList.remove('drag')"
+           ondrop="handleDrop(event)"
+           onclick="document.getElementById('fileInput').click()">
+        <i class="fas fa-cloud-upload-alt text-4xl text-indigo-300 mb-3 block"></i>
+        <p class="text-gray-500 text-sm">Drag &amp; drop PDF files here, or <span class="text-indigo-600 font-medium">browse</span></p>
+        <p class="text-xs text-gray-400 mt-1">Multiple files supported · Max 50 MB each</p>
+      </div>
+      <input type="file" id="fileInput" multiple accept=".pdf" class="hidden" onchange="handleFileSelect(this)">
+      <div id="uploadStatus" class="text-sm text-gray-500 mb-3"></div>
+      <button onclick="uploadFiles()" id="uploadBtn"
+        class="w-full bg-indigo-600 text-white py-2 rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+        <i class="fas fa-upload mr-2"></i>Upload Selected Files
+      </button>
+    </div>
+    <div class="bg-white rounded-xl shadow p-6">
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="font-semibold text-gray-700">Uploaded Files</h2>
+        <button onclick="loadUploads()" class="text-xs text-indigo-500 hover:underline"><i class="fas fa-sync mr-1"></i>Refresh</button>
+      </div>
+      <div id="uploadsList" class="space-y-2 max-h-56 overflow-y-auto mb-4">
+        <p class="text-gray-400 text-sm text-center py-4">Loading…</p>
+      </div>
+      <hr class="my-4">
+      <h2 class="font-semibold text-gray-700 mb-3">Step 2 — Run Pipeline</h2>
+      <label class="flex items-center gap-2 text-sm text-gray-600 mb-3">
+        <input type="checkbox" id="resumeCheck" class="rounded"> Resume interrupted run
+      </label>
+      <div id="pipelineStatus" class="text-sm text-gray-500 mb-3 hidden">
+        <div class="progress-bar mb-1"><div class="progress-fill" id="pipelineBar" style="width:0%"></div></div>
+        <span id="pipelineMsg">Idle</span>
+      </div>
+      <button onclick="runPipeline()" id="processBtn"
+        class="w-full bg-emerald-600 text-white py-2 rounded-lg font-medium hover:bg-emerald-700 mb-2">
+        <i class="fas fa-cogs mr-2"></i>Process All CVs
+      </button>
+      <button onclick="migrateDb()"
+        class="w-full bg-gray-100 text-gray-600 py-2 rounded-lg text-sm hover:bg-gray-200">
+        <i class="fas fa-database mr-2"></i>Re-sync JSON Cache to SQLite DB
+      </button>
+      <button onclick="reanalyzeAll()" class="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 text-sm font-medium mt-2">
+        <i class="fas fa-redo mr-2"></i>Re-score All Candidates</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<!-- CANDIDATE DETAIL MODAL -->
+<div id="candidateModal" class="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <div class="bg-indigo-700 text-white rounded-t-xl p-5 flex justify-between items-start">
+      <div>
+        <h2 id="modalName" class="text-xl font-bold"></h2>
+        <p id="modalPost" class="text-indigo-200 text-sm mt-1"></p>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="text-center">
+          <div id="modalScore" class="text-3xl font-bold"></div>
+          <div class="text-xs text-indigo-200">Overall Score</div>
+        </div>
+        <span id="modalBadge" class="text-xs px-2 py-1 rounded-full font-medium ml-2"></span>
+        <button onclick="closeModal()" class="text-indigo-200 hover:text-white text-xl ml-2"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <div class="px-5 pt-4 pb-2 grid grid-cols-2 sm:grid-cols-4 gap-3 border-b" id="modalScoreBars"></div>
+    <div class="flex overflow-x-auto border-b px-2" id="modalTabsRow">
+      <button class="tab-btn active" onclick="switchTab('overview')">Overview</button>
+      <button class="tab-btn" onclick="switchTab('education')">Education</button>
+      <button class="tab-btn" onclick="switchTab('experience')">Experience</button>
+      <button class="tab-btn" onclick="switchTab('publications')">Publications</button>
+      <button class="tab-btn" onclick="switchTab('skills')">Skills</button>
+      <button class="tab-btn" onclick="switchTab('research')">Research</button>
+      <button class="tab-btn" onclick="switchTab('misc')">Patents/Books/Awards</button>
+      <button class="tab-btn" onclick="switchTab('emails')"><i class="fas fa-envelope mr-1"></i>Emails</button>
+    </div>
+    <div class="p-5">
+      <div class="tab-panel active" id="tab-overview"></div>
+      <div class="tab-panel" id="tab-education"></div>
+      <div class="tab-panel" id="tab-experience"></div>
+      <div class="tab-panel" id="tab-publications"></div>
+      <div class="tab-panel" id="tab-skills"></div>
+      <div class="tab-panel" id="tab-research"></div>
+      <div class="tab-panel" id="tab-misc"></div>
+      <div class="tab-panel" id="tab-emails"></div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="fixed bottom-6 right-6 z-50 hidden">
+  <div class="bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg text-sm flex items-center gap-2">
+    <i id="toastIcon" class="fas fa-check-circle text-green-400"></i>
+    <span id="toastText"></span>
+  </div>
+</div>
+
+<script>
+let allCandidates = [], filteredCandidates = [];
+let currentSort = { key: 'overall_score', dir: -1 };
+let barChartInst = null, pieChartInst = null, pubChartInst = null;
+let pendingFiles = [], pollTimer = null;
+let _currentCandidateId = null, _currentCandidateData = null;
+
+// NAV
+function navTo(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(page + 'Page').classList.add('active');
+  document.getElementById('nav-' + page).classList.add('active');
+  if (page === 'dashboard')  loadDashboard();
+  if (page === 'candidates') loadCandidates();
+  if (page === 'rankings')   loadRankings();
+  if (page === 'upload')     loadUploads();
+}
+
+// TOAST
+function toast(msg, type='success') {
+  document.getElementById('toastText').textContent = msg;
+  document.getElementById('toastIcon').className =
+    type==='success' ? 'fas fa-check-circle text-green-400' :
+    type==='error'   ? 'fas fa-times-circle text-red-400' :
+                       'fas fa-info-circle text-blue-400';
+  const t = document.getElementById('toast');
+  t.classList.remove('hidden');
+  setTimeout(() => t.classList.add('hidden'), 3500);
+}
+
+// DASHBOARD
+async function loadDashboard() {
+  const [stats, candidates] = await Promise.all([
+    fetch('/api/dashboard').then(r=>r.json()),
+    fetch('/api/candidates').then(r=>r.json()),
+  ]);
+
+  document.getElementById('statsCards').innerHTML =
+    statCard('fas fa-users','bg-indigo-100 text-indigo-600', stats.total, 'Total Candidates') +
+    statCard('fas fa-star','bg-amber-100 text-amber-600', (stats.avg_score||0).toFixed(1), 'Avg Score') +
+    statCard('fas fa-graduation-cap','bg-purple-100 text-purple-600', stats.phd_count, 'PhD Holders') +
+    statCard('fas fa-book-open','bg-emerald-100 text-emerald-600', stats.publications_total, 'Total Publications');
+
+  document.getElementById('topCandidatesList').innerHTML = (stats.top_candidates||[]).map(c => `
+    <div class="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs">${(c.name||'?').charAt(0)}</div>
+        <span class="text-sm font-medium text-gray-700">${c.name}</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-sm font-bold">${c.score}</span>
+        <span class="text-xs px-2 py-0.5 rounded-full ${badgeClass(c.recommendation)}">${c.recommendation||''}</span>
+      </div>
+    </div>`).join('');
+
+  const top10 = candidates.slice(0,10);
+  if (barChartInst) barChartInst.destroy();
+  barChartInst = new Chart(document.getElementById('barChart'), {
+    type:'bar',
+    data:{ labels: top10.map(c=>(c.name||'').split(' ')[0]),
+      datasets:[{ label:'Score', data:top10.map(c=>c.overall_score),
+        backgroundColor: top10.map(c=>sColor(c.overall_score,.7)),
+        borderColor: top10.map(c=>sColor(c.overall_score,1)), borderWidth:1, borderRadius:4 }] },
+    options:{ plugins:{legend:{display:false}}, scales:{y:{max:100,beginAtZero:true}} }
+  });
+
+  const dist = stats.score_distribution || {};
+  if (pieChartInst) pieChartInst.destroy();
+  pieChartInst = new Chart(document.getElementById('pieChart'), {
+    type:'doughnut',
+    data:{ labels:['Hire','Shortlist','Review','Reject','Pending'],
+      datasets:[{ data:[dist.hire||0,dist.shortlist||0,dist.reject||0,dist.pending||0],
+        backgroundColor:['#059669','#2563eb','#dc2626','#9ca3af'], borderWidth:0 }] },
+    options:{ plugins:{legend:{display:false}}, cutout:'60%' }
+  });
+  document.getElementById('pieLegend').innerHTML =
+    [['Hire','#059669'],['Shortlist','#2563eb'],['Review','#d97706'],['Reject','#dc2626'],['Pending','#9ca3af']]
+    .map(([l,c])=>`<div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background:${c};display:inline-block"></span>${l}: <b>${(dist[l.toLowerCase()])||0}</b></div>`).join('');
+
+  const pt = stats.pub_types || [];
+  if (pubChartInst) pubChartInst.destroy();
+  pubChartInst = new Chart(document.getElementById('pubChart'), {
+    type:'doughnut',
+    data:{ labels:pt.map(p=>p.type||'?'), datasets:[{ data:pt.map(p=>p.count),
+        backgroundColor:['#4f46e5','#059669','#f59e0b','#ef4444','#8b5cf6'], borderWidth:0 }] },
+    options:{ plugins:{legend:{position:'bottom',labels:{boxWidth:12}}} }
+  });
+}
+
+function statCard(icon,iconCls,val,label) {
+  return `<div class="bg-white rounded-xl shadow p-5 flex items-center gap-4">
+    <div class="w-12 h-12 rounded-xl ${iconCls} flex items-center justify-center text-xl"><i class="${icon}"></i></div>
+    <div><div class="text-2xl font-bold text-gray-800">${val}</div><div class="text-xs text-gray-500">${label}</div></div>
+  </div>`;
+}
+
+// CANDIDATES
+async function loadCandidates() {
+  allCandidates = await fetch('/api/candidates').then(r=>r.json());
+  filteredCandidates = [...allCandidates];
+  renderCandidates();
+}
+
+function renderCandidates() {
+  const list = [...filteredCandidates].sort((a,b) => {
+    const av=a[currentSort.key]??0, bv=b[currentSort.key]??0;
+    if (typeof av==='string') return av.localeCompare(bv)*currentSort.dir;
+    return (av-bv)*currentSort.dir;
+  });
+  if (!list.length) {
+    document.getElementById('candidatesTable').innerHTML =
+      '<tr><td colspan="10" class="p-8 text-center text-gray-400">No candidates found.</td></tr>';
+    return;
+  }
+  document.getElementById('candidatesTable').innerHTML = list.map(c => `
+    <tr class="border-b border-gray-100 hover:bg-indigo-50 cursor-pointer transition-colors" onclick="openCandidate('${c.id}')">
+      <td class="p-3">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs shrink-0">${(c.name||'?').charAt(0)}</div>
+          <span class="font-medium text-gray-800">${c.name||'—'}</span>
+          ${c.phd?'<span class="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">PhD</span>':''}
+        </div>
+      </td>
+      <td class="p-3 text-gray-500 text-xs">${c.post||'—'}</td>
+      <td class="p-3 text-center">
+        <span class="font-bold text-lg ${sTxtCls(c.overall_score)}">${c.overall_score}</span>
+        <div class="score-bar-wrap w-16 mx-auto mt-1"><div class="score-bar-fill ${sColorCls(c.overall_score)}" style="width:${c.overall_score}%"></div></div>
+      </td>
+      <td class="p-3 text-center text-sm">${c.education_score}</td>
+      <td class="p-3 text-center text-sm">${c.research_score}</td>
+      <td class="p-3 text-center text-sm">${(c.experience_years||0).toFixed(1)}y</td>
+      <td class="p-3 text-center text-sm">${c.publications}</td>
+      <td class="p-3 text-center">${c.phd?'<i class="fas fa-check text-green-500"></i>':'<span class="text-gray-300">—</span>'}</td>
+      <td class="p-3 text-center"><span class="text-xs px-2 py-1 rounded-full font-medium ${badgeClass(c.recommendation)}">${c.recommendation}</span></td>
+      <td class="p-3 text-center"><button onclick="event.stopPropagation();openCandidate('${c.id}')" class="text-indigo-600 text-xs border border-indigo-300 px-2 py-1 rounded hover:bg-indigo-50">View</button></td>
+    </tr>`).join('');
+  document.getElementById('candidatesPager').textContent = `${list.length} of ${allCandidates.length} candidates`;
+}
+
+function searchCandidates() {
+  const q = (document.getElementById('searchInput').value||'').toLowerCase();
+  const rec = document.getElementById('filterRec').value;
+  filteredCandidates = allCandidates.filter(c =>
+    (!q || (c.name||'').toLowerCase().includes(q) || (c.post||'').toLowerCase().includes(q)) &&
+    (!rec || c.recommendation === rec));
+  renderCandidates();
+}
+
+function sortCandidates(key) {
+  currentSort.dir = currentSort.key===key ? -currentSort.dir : 1;
+  currentSort.key = key;
+  renderCandidates();
+}
+
+// BULK MISSING EMAILS
+async function bulkMissingEmails() {
+  const btn = document.getElementById('bulkEmailBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+  toast('Generating missing-info emails for all candidates…', 'info');
+  try {
+    const res = await fetch('/api/bulk_missing_emails', {method:'POST'}).then(r=>r.json());
+    const panel = document.getElementById('bulkEmailResult');
+    if (res.results && res.results.length) {
+      panel.innerHTML = `<p class="font-semibold text-amber-800 mb-2"><i class="fas fa-envelope-open-text mr-1"></i>
+        Bulk Email Generation Complete — ${res.results.length} candidate(s) processed</p>
+        <div class="space-y-1 max-h-40 overflow-y-auto">` +
+        res.results.map(r=>`<div class="flex items-center gap-2 text-xs text-amber-700">
+          <i class="fas fa-check-circle text-emerald-500"></i>
+          <span class="font-medium">${r.name||r.candidate_id}</span>
+          <span class="text-gray-400">→</span>
+          <span class="text-gray-600 truncate">${r.email_file||'generated'}</span>
+        </div>`).join('') + '</div>';
+      panel.classList.remove('hidden');
+      toast(`${res.results.length} email draft(s) generated!`);
+    } else {
+      panel.innerHTML = `<p class="text-amber-700"><i class="fas fa-info-circle mr-1"></i>${res.message||'No missing-info candidates found, or all emails already generated.'}</p>`;
+      panel.classList.remove('hidden');
+      toast(res.message||'Done', 'info');
+    }
+  } catch(e) {
+    toast('Failed to generate bulk emails', 'error');
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<i class="fas fa-envelope-open-text"></i><span class="hidden sm:inline"> Bulk Missing Emails</span>';
+}
+
+// RANKINGS
+async function loadRankings() {
+  const data = await fetch('/api/rankings').then(r=>r.json());
+  document.getElementById('rankingsTable').innerHTML = data.map(r=>`
+    <tr class="border-b border-gray-100 hover:bg-amber-50 cursor-pointer" onclick="openCandidate('${r.id}')">
+      <td class="p-3 text-center">${r.rank<=3?['🥇','🥈','🥉'][r.rank-1]:`<span class="text-gray-500 font-bold">#${r.rank}</span>`}</td>
+      <td class="p-3 font-medium text-gray-800">${r.name}${r.phd?'<span class="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded ml-1">PhD</span>':''}</td>
+      <td class="p-3 text-center"><span class="font-bold text-lg ${sTxtCls(r.score)}">${r.score}</span></td>
+      <td class="p-3 text-center text-sm">${r.education_score}</td>
+      <td class="p-3 text-center text-sm">${r.research_score}</td>
+      <td class="p-3 text-center text-sm">${r.skill_score}</td>
+      <td class="p-3 text-center text-sm">${r.publications}</td>
+      <td class="p-3 text-center text-sm">${r.patents}</td>
+      <td class="p-3 text-xs text-gray-500">${r.dominant_topic||'—'}</td>
+      <td class="p-3 text-center"><span class="text-xs px-2 py-1 rounded-full font-medium ${badgeClass(r.recommendation)}">${r.recommendation}</span></td>
+      <td class="p-3 text-center"><button onclick="event.stopPropagation();openCandidate('${r.id}')" class="text-indigo-600 text-xs border border-indigo-300 px-2 py-1 rounded">Detail</button></td>
+    </tr>`).join('');
+}
+
+// UPLOADS
+async function loadUploads() {
+  const files = await fetch('/api/uploads').then(r=>r.json());
+  document.getElementById('uploadsList').innerHTML = files.length
+    ? files.map(f=>`<div class="flex justify-between items-center bg-gray-50 rounded-lg px-3 py-2 text-sm">
+        <div class="flex items-center gap-2"><i class="fas fa-file-pdf text-red-500"></i>
+          <span class="text-gray-700 truncate max-w-xs">${f.name}</span>
+          <span class="text-gray-400 text-xs">${f.size_kb} KB</span>
+        </div>
+        <button onclick="deleteUpload('${f.name}')" class="text-gray-400 hover:text-red-500"><i class="fas fa-trash text-xs"></i></button>
+      </div>`).join('')
+    : '<p class="text-gray-400 text-sm text-center py-4">No files uploaded yet.</p>';
+}
+
+function handleDrop(e) {
+  e.preventDefault(); document.getElementById('dropZone').classList.remove('drag');
+  queueFiles(Array.from(e.dataTransfer.files).filter(f=>f.name.endsWith('.pdf')));
+}
+function handleFileSelect(i) { queueFiles(Array.from(i.files)); }
+function queueFiles(files) {
+  pendingFiles = files;
+  document.getElementById('uploadStatus').textContent = files.length
+    ? `${files.length} file(s) selected` : '';
+  document.getElementById('uploadBtn').disabled = !files.length;
+}
+
+async function uploadFiles() {
+  if (!pendingFiles.length) return;
+  const fd = new FormData();
+  pendingFiles.forEach(f=>fd.append('files',f));
+  const btn = document.getElementById('uploadBtn');
+  btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin mr-2"></i>Uploading…';
+  const data = await fetch('/api/upload',{method:'POST',body:fd}).then(r=>r.json());
+  btn.innerHTML='<i class="fas fa-upload mr-2"></i>Upload Selected Files'; btn.disabled=false;
+  pendingFiles=[]; document.getElementById('fileInput').value='';
+  document.getElementById('uploadStatus').textContent='';
+  toast(data.message||'Uploaded!');
+  loadUploads();
+}
+
+async function deleteUpload(name) {
+  if (!confirm(`Delete ${name}?`)) return;
+  await fetch(`/api/uploads/${encodeURIComponent(name)}`,{method:'DELETE'});
+  toast(`${name} deleted`); loadUploads();
+}
+
+async function runPipeline() {
+  const resume = document.getElementById('resumeCheck').checked;
+  const btn = document.getElementById('processBtn');
+  btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin mr-2"></i>Running…';
+  document.getElementById('pipelineStatus').classList.remove('hidden');
+  document.getElementById('pipelineMsg').textContent='Starting…';
+  document.getElementById('pipelineBar').style.width='5%';
+  const data = await fetch('/api/process',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({resume})}).then(r=>r.json());
+  if (!data.success) {
+    toast(data.message||'Failed','error');
+    btn.disabled=false; btn.innerHTML='<i class="fas fa-cogs mr-2"></i>Process All CVs'; return;
+  }
+  toast('Pipeline started…','info'); pollPipeline();
+}
+
+function pollPipeline() {
+  if (pollTimer) clearInterval(pollTimer);
+  let pct=10;
+  pollTimer = setInterval(async()=>{
+    const s = await fetch('/api/process/status').then(r=>r.json());
+    document.getElementById('pipelineMsg').textContent=s.message;
+    pct = s.progress>0 ? s.progress : Math.min(pct+5,90);
+    document.getElementById('pipelineBar').style.width=pct+'%';
+    if (!s.running) {
+      clearInterval(pollTimer);
+      document.getElementById('pipelineBar').style.width='100%';
+      const btn=document.getElementById('processBtn');
+      btn.disabled=false; btn.innerHTML='<i class="fas fa-cogs mr-2"></i>Process All CVs';
+      toast(s.message.startsWith('Error')?s.message:'Pipeline complete!',
+            s.message.startsWith('Error')?'error':'success');
+    }
+  },2000);
+}
+
+async function reanalyzeAll() {
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = 'Re-scoring... (this may take a few minutes)';
+  try {
+    const r = await fetch('/api/db/reanalyze', {method:'POST'}).then(x=>x.json());
+    if (r.success) {
+      alert(`Re-scored ${r.reanalyzed} candidates successfully!${r.errors.length ? '\nErrors: ' + r.errors.join(', ') : ''}`);
+      await loadDashboard(); await loadCandidates(); await loadRankings();
+    } else {
+      alert('Error: ' + (r.error || 'Unknown error'));
+    }
+  } catch(e) { alert('Failed: ' + e); }
+  btn.disabled = false;
+  btn.innerHTML = '<i class="fas fa-redo mr-2"></i>Re-score All Candidates (apply new formula)';
+}
+
+async function migrateDb() {
+  const d = await fetch('/api/db/migrate',{method:'POST'}).then(r=>r.json());
+  d.success ? toast(`Sync complete — ${d.imported} candidates`) : toast(d.error||'Failed','error');
+}
+
+// MODAL
+async function openCandidate(id) {
+  _currentCandidateId = id;
+  const data = await fetch(`/api/candidate/${id}`).then(r=>r.json());
+  if (data.error) { toast('Not found','error'); return; }
+  _currentCandidateData = data;
+  const pi=data.personal_info||{}, ev=data.evaluation||{};
+  const ea=ev.educational_analysis||{}, ra=ev.research_analysis||{},
+        xa=ev.experience_analysis||{}, sa=ev.skill_analysis||{};
+  document.getElementById('modalName').textContent = pi.full_name||'Unknown';
+  document.getElementById('modalPost').textContent = pi.post_applied_for||'';
+  const sc = ev.overall_score??0;
+  document.getElementById('modalScore').textContent = sc;
+  const rec = _rec(sc);
+  document.getElementById('modalBadge').className = 'text-xs px-2 py-1 rounded-full font-medium ml-2 '+badgeClass(rec);
+  document.getElementById('modalBadge').textContent = rec;
+
+  document.getElementById('modalScoreBars').innerHTML =
+    [['Education',ea.score,'indigo'],['Research',ra.overall_quality_score,'emerald'],
+     ['Experience',xa.score,'amber'],['Skills',sa.alignment_score,'purple']]
+    .map(([l,v,c])=>`<div>
+      <div class="text-xs text-gray-400 mb-1">${l}</div>
+      <div class="text-xl font-bold text-${c}-600">${v??0}</div>
+      <div class="score-bar-wrap mt-1"><div class="score-bar-fill bg-${c}-500" style="width:${v??0}%"></div></div>
+    </div>`).join('');
+
+  buildTab_overview(data,ev);
+  buildTab_education(data,ev);
+  buildTab_experience(data,ev);
+  buildTab_publications(data,ev);
+  buildTab_skills(data,ev);
+  buildTab_research(data,ev);
+  buildTab_misc(data,ev);
+  buildTab_emails(data,ev);
+  switchTab('overview');
+  document.getElementById('candidateModal').classList.add('open');
+}
+function closeModal() { document.getElementById('candidateModal').classList.remove('open'); }
+function switchTab(n) {
+  const names=['overview','education','experience','publications','skills','research','misc','emails'];
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',names[i]===n));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+n).classList.add('active');
+}
+
+function buildTab_overview(d,ev) {
+  const pi=d.personal_info||{}, xa=ev.experience_analysis||{}, su=ev.supervision_analysis||{};
+  const summary = ev.candidate_summary || ev.llm_summary || ev.summary || null;
+  document.getElementById('tab-overview').innerHTML=`
+    <div class="grid sm:grid-cols-2 gap-4 mb-4">
+      ${ic('Personal',[['Full Name',pi.full_name],['Father/Guardian',pi.father_guardian_name],['Date of Birth',pi.date_of_birth],['Gender',pi.gender],['Marital Status',pi.marital_status],['Nationality',pi.nationality]])}
+      ${ic('Employment',[['Post Applied',pi.post_applied_for],['Department',pi.department],['Present Employment',pi.present_employment],['Current Employer',pi.current_employer],['Current Salary',pi.current_salary_pkr?'PKR '+(pi.current_salary_pkr||0).toLocaleString():null],['Expected Salary',pi.expected_salary_pkr?'PKR '+(pi.expected_salary_pkr||0).toLocaleString():null]])}
+    </div>
+    <div class="grid grid-cols-4 gap-3 mb-4">
+      ${ms('Exp Years',(xa.experience_years||0).toFixed(1)+'y','amber')}
+      ${ms('Publications',(d.publications||[]).length,'indigo')}
+      ${ms('Patents',(d.patents||[]).length,'purple')}
+      ${ms('Supervised',su.total_supervised||0,'emerald')}
+    </div>
+    <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4 text-sm text-gray-700 mb-3">
+      <span class="font-semibold text-indigo-700">Academic Strength: </span>${ev?.educational_analysis?.overall_strength||'—'}
+    </div>
+    ${summary ? `
+    <div class="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-4">
+      <div class="flex items-center gap-2 mb-2">
+        <i class="fas fa-robot text-indigo-500"></i>
+        <span class="font-semibold text-indigo-700 text-sm">AI-Generated Candidate Summary</span>
+      </div>
+      <p class="text-sm text-gray-700 leading-relaxed">${summary}</p>
+    </div>` : `
+    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 flex items-center gap-3">
+      <i class="fas fa-robot text-gray-400 text-lg"></i>
+      <div class="flex-1">
+        <p class="text-sm text-gray-500 mb-2">No AI summary available. Generate one now?</p>
+        <button onclick="generateSummary()" id="genSummaryBtn"
+          class="bg-indigo-600 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-indigo-700">
+          <i class="fas fa-magic mr-1"></i>Generate LLM Summary
+        </button>
+      </div>
+    </div>`}`;
+}
+
+async function generateSummary() {
+  const btn = document.getElementById('genSummaryBtn');
+  if (!btn) return;
+  btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin mr-1"></i>Generating…';
+  try {
+    const res = await fetch(`/api/candidate/${_currentCandidateId}/summary`).then(r=>r.json());
+    if (res.summary) {
+      const container = btn.closest('.bg-gray-50');
+      container.outerHTML = `
+        <div class="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-4">
+          <div class="flex items-center gap-2 mb-2">
+            <i class="fas fa-robot text-indigo-500"></i>
+            <span class="font-semibold text-indigo-700 text-sm">AI-Generated Candidate Summary</span>
+          </div>
+          <p class="text-sm text-gray-700 leading-relaxed">${res.summary}</p>
+        </div>`;
+      toast('Summary generated!');
+    } else {
+      toast(res.error||'Failed to generate summary','error');
+      btn.disabled=false; btn.innerHTML='<i class="fas fa-magic mr-1"></i>Generate LLM Summary';
+    }
+  } catch(e) {
+    toast('Error generating summary','error');
+    btn.disabled=false; btn.innerHTML='<i class="fas fa-magic mr-1"></i>Generate LLM Summary';
+  }
+}
+
+function buildTab_education(d,ev) {
+  const edu=d.education||[], ea=ev.educational_analysis||{}, rk=ea.institution_rankings||[];
+  document.getElementById('tab-education').innerHTML=`
+    <table class="w-full text-sm mb-4">
+      <thead class="bg-gray-50"><tr><th class="p-2 text-left">Degree</th><th class="p-2 text-left">Institution</th><th class="p-2 text-center">Year</th><th class="p-2 text-center">Grade</th><th class="p-2 text-center">Level</th></tr></thead>
+      <tbody>${edu.map(e=>`<tr class="border-b"><td class="p-2">${e.degree_name||'—'}</td><td class="p-2 text-gray-500">${e.institution||'—'}</td><td class="p-2 text-center">${e.passing_year||'—'}</td><td class="p-2 text-center">${e.grade_gpa_percentage||'—'}</td><td class="p-2 text-center"><span class="text-xs bg-indigo-100 text-indigo-700 px-1.5 rounded">${e.degree_level||'?'}</span></td></tr>`).join('')||noRow(5)}
+      </tbody>
+    </table>
+    ${rk.length?`<div class="bg-gray-50 rounded p-3 text-sm">${rk.map(r=>`<div class="py-1 border-b last:border-0 text-gray-600"><b>${r.institution}</b>${r.qs_rank?' · QS #'+r.qs_rank:''}${r.the_rank?' · THE #'+r.the_rank:''}${r.quality?' · <span class="text-indigo-600">'+r.quality+'</span>':''}</div>`).join('')}</div>`:''}`;
+}
+
+function buildTab_experience(d,ev) {
+  const ex=d.experience||[], xa=ev.experience_analysis||{};
+  const hasGapEmail = xa.gap_email;
+  const candEmail = (d.personal_info||{}).email||'';
+  document.getElementById('tab-experience').innerHTML=`
+    <table class="w-full text-sm mb-4">
+      <thead class="bg-gray-50"><tr><th class="p-2 text-left">Title</th><th class="p-2 text-left">Organization</th><th class="p-2 text-center">Start</th><th class="p-2 text-center">End</th><th class="p-2 text-center">Duration</th><th class="p-2 text-center">Type</th></tr></thead>
+      <tbody>${ex.map(e=>`<tr class="border-b ${e.overlap_flag?'bg-red-50':''} ${e.gap_before_months>6?'bg-amber-50':''}">
+        <td class="p-2 font-medium">${e.job_title||'—'}</td><td class="p-2 text-gray-500">${e.organization||'—'}</td>
+        <td class="p-2 text-center text-xs">${e.start_date||'—'}</td>
+        <td class="p-2 text-center text-xs">${e.is_current?'<span class="text-green-600">Present</span>':(e.end_date||'—')}</td>
+        <td class="p-2 text-center text-xs">${e.duration_months?Math.round(e.duration_months/12*10)/10+'y':'—'}</td>
+        <td class="p-2 text-center"><span class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">${e.employment_type||'?'}</span></td>
+      </tr>`).join('')||noRow(6)}
+      </tbody>
+    </table>
+    ${(xa.gaps||[]).length?`<div class="bg-amber-50 border border-amber-200 rounded p-3 text-sm mb-3">
+      <p class="font-semibold text-amber-700 mb-1"><i class="fas fa-exclamation-triangle mr-1"></i>Employment Gaps</p>
+      ${(xa.gaps||[]).map(g=>`<div class="text-amber-600">${g.description||JSON.stringify(g)}</div>`).join('')}
+    </div>`:''}
+    ${(xa.overlaps||[]).length?`<div class="bg-red-50 border border-red-200 rounded p-3 text-sm mb-3">
+      <p class="font-semibold text-red-700 mb-1"><i class="fas fa-exclamation-circle mr-1"></i>Overlapping Positions</p>
+      ${(xa.overlaps||[]).map(o=>`<div class="text-red-600">${o.description||JSON.stringify(o)}</div>`).join('')}
+    </div>`:''}
+    ${hasGapEmail ? `
+    <div class="bg-amber-50 border border-amber-300 rounded-lg p-4" id="gapEmailSection">
+      <div class="flex items-center justify-between mb-2">
+        <span class="font-semibold text-amber-800 text-sm"><i class="fas fa-envelope mr-1"></i>Gap Clarification Email</span>
+        <button onclick="toggleGapEmail()" class="text-xs text-amber-600 hover:underline" id="toggleGapBtn">Show Draft</button>
+      </div>
+      <div id="gapEmailBody" class="hidden mb-3">
+        <div class="email-box text-amber-900">${escHtml(xa.gap_email)}</div>
+      </div>
+      <div class="flex items-center gap-2 mt-2">
+        <input id="gapEmailTo" type="email" placeholder="Recipient email (optional)"
+          value="${escHtml(candEmail)}"
+          class="flex-1 border border-amber-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+        <button onclick="sendGapEmail()" id="sendGapBtn"
+          class="bg-amber-500 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-amber-600 whitespace-nowrap">
+          <i class="fas fa-paper-plane mr-1"></i>Send via SMTP
+        </button>
+      </div>
+      <p id="gapEmailResult" class="text-xs text-gray-500 mt-1 hidden"></p>
+    </div>` : ''}`;
+}
+
+function toggleGapEmail() {
+  const body = document.getElementById('gapEmailBody');
+  const btn = document.getElementById('toggleGapBtn');
+  if (body.classList.contains('hidden')) {
+    body.classList.remove('hidden'); btn.textContent = 'Hide Draft';
+  } else {
+    body.classList.add('hidden'); btn.textContent = 'Show Draft';
+  }
+}
+
+async function sendGapEmail() {
+  const toEmail = document.getElementById('gapEmailTo').value.trim();
+  const btn = document.getElementById('sendGapBtn');
+  btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin mr-1"></i>Sending…';
+  try {
+    const res = await fetch(`/api/candidate/${_currentCandidateId}/send_gap_email`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({to_email: toEmail})
+    }).then(r=>r.json());
+    const result = document.getElementById('gapEmailResult');
+    result.classList.remove('hidden');
+    if (res.sent) {
+      result.textContent = `✓ Email sent to ${res.to}`;
+      result.className = 'text-xs text-green-600 mt-1';
+      toast('Gap email sent!');
+    } else {
+      result.textContent = res.draft_mode ? '📋 SMTP not configured — email draft saved locally.' : (res.error||'Failed');
+      result.className = 'text-xs text-amber-600 mt-1';
+      toast(res.draft_mode ? 'SMTP not configured — draft saved' : 'Send failed', res.draft_mode?'info':'error');
+    }
+  } catch(e) { toast('Error sending gap email','error'); }
+  btn.disabled=false; btn.innerHTML='<i class="fas fa-paper-plane mr-1"></i>Send via SMTP';
+}
+
+function buildTab_publications(d,ev) {
+  const pubs=d.publications||[], ra=ev.research_analysis||{};
+  document.getElementById('tab-publications').innerHTML=`
+    <p class="text-xs text-gray-500 mb-3">${pubs.length} publication(s) — Research Score: <b>${ra.overall_quality_score??'—'}</b></p>
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50"><tr><th class="p-2 text-left">Title</th><th class="p-2 text-center">Year</th><th class="p-2 text-center">Type</th><th class="p-2 text-left">Venue</th><th class="p-2 text-center">IF</th><th class="p-2 text-center">Role</th></tr></thead>
+      <tbody>${pubs.map(p=>`<tr class="border-b hover:bg-gray-50">
+        <td class="p-2 max-w-xs" title="${p.title||''}">${(p.title||'—').substring(0,55)}${(p.title||'').length>55?'…':''}</td>
+        <td class="p-2 text-center">${p.year||'—'}</td>
+        <td class="p-2 text-center"><span class="text-xs px-1.5 py-0.5 rounded ${p.pub_type==='Journal'?'bg-indigo-100 text-indigo-700':'bg-emerald-100 text-emerald-700'}">${p.pub_type||'?'}</span></td>
+        <td class="p-2 text-xs text-gray-500">${(p.venue_name||'—').substring(0,35)}</td>
+        <td class="p-2 text-center text-xs">${p.impact_factor_claimed||'—'}</td>
+        <td class="p-2 text-center text-xs">${p.authorship_role||'—'}</td>
+      </tr>`).join('')||noRow(6)}
+      </tbody>
+    </table>`;
+}
+
+function buildTab_skills(d,ev) {
+  const skills=d.skills||[], sa=ev.skill_analysis||{}, ev_map=sa.skill_evidence||{};
+  document.getElementById('tab-skills').innerHTML=`
+    <div class="grid grid-cols-3 gap-3 mb-4">
+      ${ms('Strong',sa.strong||0,'emerald')}${ms('Partial',sa.partial||0,'amber')}${ms('Unsupported',sa.unsupported||0,'red')}
+    </div>
+    <div class="flex flex-wrap gap-2">${skills.map(s=>{
+      const name=s.skill_name||s+'';
+      const e=(ev_map[name]||{}).evidence||'Unknown';
+      return `<span class="text-xs px-2 py-1 rounded-full ${e==='Strong'?'bg-emerald-100 text-emerald-700':e==='Partial'?'bg-amber-100 text-amber-700':e==='Unsupported'?'bg-red-100 text-red-700':'bg-gray-100 text-gray-600'}" title="${e}">${name}</span>`;
+    }).join('')||'<p class="text-gray-400 text-sm">No skills listed.</p>'}
+    </div>`;
+}
+
+function buildTab_research(d,ev) {
+  const ra=ev.research_analysis||{}, ta=ev.topic_analysis||{},
+        ca=ev.coauthor_analysis||{}, su=ev.supervision_analysis||{};
+  document.getElementById('tab-research').innerHTML=`
+    <div class="grid sm:grid-cols-2 gap-4">
+      ${ic('Research Profile',[['Quality Score',ra.overall_quality_score],['Journals',ra.journal_count],['Conferences',ra.conference_count],['Avg IF',ra.avg_impact_factor],['WoS Indexed',ra.wos_count],['Scopus Indexed',ra.scopus_count]])}
+      ${ic('Topic & Collaboration',[['Dominant Topic',ta.dominant_topic],['Research Breadth',ta.breadth],['Diversity Score',ta.diversity_score],['Unique Co-authors',ca.unique_coauthors],['Avg Team Size',ca.avg_team_size],['Collab Diversity',ca.collaboration_diversity_score]])}
+      ${ic('Supervision',[['MS (Main)',su.ms_main_supervisor],['MS (Co)',su.ms_co_supervisor],['PhD (Main)',su.phd_main_supervisor],['PhD (Co)',su.phd_co_supervisor],['Joint Pubs',su.publications_with_students],['Supervision Score',su.score]])}
+    </div>`;
+}
+
+function buildTab_misc(d,ev) {
+  const pats=d.patents||[], bks=d.books||[], awds=d.awards||{},
+        pa=ev.patents_analysis||{}, ba=ev.books_analysis||{};
+  const awardsArr = Array.isArray(awds) ? awds : [];
+  document.getElementById('tab-misc').innerHTML=`
+    <div class="mb-5">
+      <h3 class="font-semibold text-gray-700 mb-2"><i class="fas fa-certificate text-amber-500 mr-2"></i>Patents (${pats.length}) — Score: ${pa.score??'—'}</h3>
+      ${pats.length?pats.map(p=>`<div class="border-b py-2 text-sm"><b>${p.patent_title||'—'}</b> <span class="text-gray-500">${p.country||''} · ${p.status||''}</span>${p.is_lead_inventor?'<span class="ml-2 text-xs bg-amber-100 text-amber-700 px-1.5 rounded">Lead</span>':''}</div>`).join(''):'<p class="text-gray-400 text-sm">No patents.</p>'}
+    </div>
+    <div class="mb-5">
+      <h3 class="font-semibold text-gray-700 mb-2"><i class="fas fa-book text-indigo-500 mr-2"></i>Books (${bks.length}) — Score: ${ba.score??'—'}</h3>
+      ${bks.length?bks.map(b=>`<div class="border-b py-2 text-sm"><b>${b.title||'—'}</b> <span class="text-gray-500">${b.publisher||''} · ${b.year||''}</span></div>`).join(''):'<p class="text-gray-400 text-sm">No books.</p>'}
+    </div>
+    <div>
+      <h3 class="font-semibold text-gray-700 mb-2"><i class="fas fa-award text-purple-500 mr-2"></i>Awards (${awardsArr.length})</h3>
+      ${awardsArr.length?awardsArr.map(a=>`<div class="border-b py-2 text-sm"><b>${a.detail||a.award_type||'—'}</b> <span class="text-gray-500">${a.issuing_body||''} · ${a.year||''}</span>${a.is_hec_scholarship?'<span class="ml-1 text-xs bg-emerald-100 text-emerald-700 px-1.5 rounded">HEC</span>':''}${a.is_international?'<span class="ml-1 text-xs bg-blue-100 text-blue-700 px-1.5 rounded">Intl</span>':''}</div>`).join(''):'<p class="text-gray-400 text-sm">No awards.</p>'}
+    </div>`;
+}
+
+// ── EMAILS TAB ──────────────────────────────────────────────────────────────
+function buildTab_emails(d, ev) {
+  const pi = d.personal_info || {};
+  const candEmail = pi.email || '';
+  document.getElementById('tab-emails').innerHTML = `
+    <div class="space-y-5">
+      <!-- Missing Info Email -->
+      <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <i class="fas fa-envelope-open-text text-indigo-500 text-lg"></i>
+            <span class="font-semibold text-gray-800">Missing Information Email</span>
+          </div>
+          <button onclick="loadMissingEmail()" id="loadMissingEmailBtn"
+            class="bg-indigo-600 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-indigo-700">
+            <i class="fas fa-sync mr-1"></i>Generate / Load
+          </button>
+        </div>
+        <div id="missingEmailPanel">
+          <p class="text-sm text-gray-400 italic">Click "Generate / Load" to fetch or create the missing-info email draft.</p>
+        </div>
+      </div>
+
+      <!-- Gap Email (if exists) -->
+      <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+        <div class="flex items-center gap-2 mb-3">
+          <i class="fas fa-calendar-times text-amber-500 text-lg"></i>
+          <span class="font-semibold text-gray-800">Employment Gap Clarification Email</span>
+        </div>
+        <div id="gapEmailTabPanel">
+          <button onclick="loadGapEmailTab()" id="loadGapEmailTabBtn"
+            class="bg-amber-500 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-amber-600">
+            <i class="fas fa-sync mr-1"></i>Load Gap Email
+          </button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function loadMissingEmail() {
+  const btn = document.getElementById('loadMissingEmailBtn');
+  btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin mr-1"></i>Loading…';
+  try {
+    const res = await fetch(`/api/candidate/${_currentCandidateId}/missing_email`).then(r=>r.json());
+    const panel = document.getElementById('missingEmailPanel');
+    const candEmail = (_currentCandidateData?.personal_info||{}).email || '';
+    if (!res.email_text) {
+      panel.innerHTML = `<div class="bg-emerald-50 border border-emerald-200 rounded p-3 text-sm text-emerald-700">
+        <i class="fas fa-check-circle mr-1"></i>${res.message||'No missing fields — profile appears complete!'}
+      </div>`;
+    } else {
+      panel.innerHTML = `
+        <div class="mb-2">
+          <p class="text-xs text-gray-500 mb-1">Missing fields detected:</p>
+          <div class="flex flex-wrap gap-1">${(res.missing_fields||[]).map(f=>`<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">${f}</span>`).join('')}</div>
+        </div>
+        <div class="email-box mb-3" id="missingEmailDraft">${escHtml(res.email_text)}</div>
+        <div class="flex items-center gap-2">
+          <input id="missingEmailTo" type="email" placeholder="Recipient email"
+            value="${escHtml(res.candidate_email||candEmail)}"
+            class="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+          <button onclick="sendMissingEmail()" id="sendMissingBtn"
+            class="bg-indigo-600 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-indigo-700 whitespace-nowrap">
+            <i class="fas fa-paper-plane mr-1"></i>Send via SMTP
+          </button>
+        </div>
+        <p id="missingEmailResult" class="text-xs text-gray-500 mt-1 hidden"></p>`;
+    }
+  } catch(e) { toast('Failed to load missing email','error'); }
+  btn.disabled=false; btn.innerHTML='<i class="fas fa-sync mr-1"></i>Generate / Load';
+}
+
+async function sendMissingEmail() {
+  const toEmail = document.getElementById('missingEmailTo').value.trim();
+  const btn = document.getElementById('sendMissingBtn');
+  btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin mr-1"></i>Sending…';
+  try {
+    const res = await fetch(`/api/candidate/${_currentCandidateId}/send_missing_email`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({to_email: toEmail})
+    }).then(r=>r.json());
+    const result = document.getElementById('missingEmailResult');
+    result.classList.remove('hidden');
+    if (res.sent) {
+      result.textContent = `✓ Email sent to ${res.to}`;
+      result.className = 'text-xs text-green-600 mt-1';
+      toast('Missing-info email sent!');
+    } else {
+      result.textContent = res.draft_mode ? '📋 SMTP not configured — draft saved locally.' : (res.error||'Failed');
+      result.className = 'text-xs text-amber-600 mt-1';
+      toast(res.draft_mode ? 'SMTP not configured — draft saved' : 'Send failed', res.draft_mode?'info':'error');
+    }
+  } catch(e) { toast('Error sending email','error'); }
+  btn.disabled=false; btn.innerHTML='<i class="fas fa-paper-plane mr-1"></i>Send via SMTP';
+}
+
+async function loadGapEmailTab() {
+  const btn = document.getElementById('loadGapEmailTabBtn');
+  btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin mr-1"></i>Loading…';
+  try {
+    const res = await fetch(`/api/candidate/${_currentCandidateId}/gap_email`).then(r=>r.json());
+    const panel = document.getElementById('gapEmailTabPanel');
+    const candEmail = (_currentCandidateData?.personal_info||{}).email || '';
+    if (!res.email) {
+      panel.innerHTML = `<div class="bg-emerald-50 border border-emerald-200 rounded p-3 text-sm text-emerald-700">
+        <i class="fas fa-check-circle mr-1"></i>No employment gap email for this candidate.
+      </div>`;
+    } else {
+      panel.innerHTML = `
+        <div class="email-box mb-3">${escHtml(res.email)}</div>
+        <div class="flex items-center gap-2">
+          <input id="gapEmailTabTo" type="email" placeholder="Recipient email"
+            value="${escHtml(candEmail)}"
+            class="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+          <button onclick="sendGapEmailTab()" id="sendGapTabBtn"
+            class="bg-amber-500 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-amber-600 whitespace-nowrap">
+            <i class="fas fa-paper-plane mr-1"></i>Send via SMTP
+          </button>
+        </div>
+        <p id="gapEmailTabResult" class="text-xs text-gray-500 mt-1 hidden"></p>`;
+    }
+  } catch(e) { toast('Failed to load gap email','error'); }
+}
+
+async function sendGapEmailTab() {
+  const toEmail = document.getElementById('gapEmailTabTo').value.trim();
+  const btn = document.getElementById('sendGapTabBtn');
+  btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin mr-1"></i>Sending…';
+  try {
+    const res = await fetch(`/api/candidate/${_currentCandidateId}/send_gap_email`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({to_email: toEmail})
+    }).then(r=>r.json());
+    const result = document.getElementById('gapEmailTabResult');
+    result.classList.remove('hidden');
+    if (res.sent) {
+      result.textContent = `✓ Email sent to ${res.to}`;
+      result.className = 'text-xs text-green-600 mt-1';
+      toast('Gap email sent!');
+    } else {
+      result.textContent = res.draft_mode ? '📋 SMTP not configured — draft saved locally.' : (res.error||'Failed');
+      result.className = 'text-xs text-amber-600 mt-1';
+      toast(res.draft_mode ? 'Draft saved (no SMTP)' : 'Send failed', res.draft_mode?'info':'error');
+    }
+  } catch(e) { toast('Error sending gap email','error'); }
+  btn.disabled=false; btn.innerHTML='<i class="fas fa-paper-plane mr-1"></i>Send via SMTP';
+}
+
+// Helpers
+function ic(title,rows){return`<div class="bg-gray-50 rounded-lg p-4"><p class="text-xs font-semibold text-gray-400 uppercase mb-2">${title}</p>${rows.filter(r=>r[1]!=null&&r[1]!=='').map(([l,v])=>`<div class="flex justify-between py-1 border-b border-gray-100 last:border-0 text-sm"><span class="text-gray-500">${l}</span><span class="font-medium text-gray-800">${v}</span></div>`).join('')}</div>`;}
+function ms(l,v,c){return`<div class="bg-${c}-50 rounded-lg p-3 text-center"><div class="text-xl font-bold text-${c}-600">${v}</div><div class="text-xs text-${c}-500">${l}</div></div>`;}
+function noRow(cols){return`<tr><td colspan="${cols}" class="p-4 text-center text-gray-400">No records.</td></tr>`;}
+function badgeClass(r){if(!r)return'badge-pending';const x=r.toLowerCase();return x==='hire'?'badge-hire':x==='shortlist'?'badge-shortlist':x==='reject'?'badge-reject':x==='review'?'badge-review':'badge-pending';}
+function sTxtCls(s){return s>=70?'text-emerald-600':s>=50?'text-blue-600':s>0?'text-red-500':'text-gray-400';}
+function sColorCls(s){return s>=70?'bg-emerald-500':s>=50?'bg-blue-500':s>0?'bg-red-500':'bg-gray-300';}
+function sColor(s,a=1){if(s>=70)return`rgba(5,150,105,${a})`;if(s>=50)return`rgba(37,99,235,${a})`;if(s>0)return`rgba(220,38,38,${a})`;return`rgba(156,163,175,${a})`;}
+function _rec(s){if(s>=60)return'Hire';if(s>=45)return'Shortlist';if(s>=30)return'Review';if(s>0)return'Reject';return'Pending';}
+function escHtml(t){if(!t)return'';return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+async function exportExcel(){
+  const r=await fetch('/api/export');
+  if(!r.ok){toast('No Excel file. Run pipeline first.','error');return;}
+  const b=await r.blob(),u=URL.createObjectURL(b),a=document.createElement('a');
+  a.href=u;a.download='TALASH_Candidates.xlsx';a.click();URL.revokeObjectURL(u);
+}
+async function exportCsv(){
+  const a=document.createElement('a');a.href='/api/export/csv';a.download='TALASH_Summary.csv';a.click();
+}
+
+loadDashboard();
+</script>
+</body>
+</html>

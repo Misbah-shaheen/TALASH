@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.env
+talash.db
+output/
+cvs/
+*.xlsx
+*.json
+.checkpoint.json
