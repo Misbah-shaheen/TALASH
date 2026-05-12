@@ -9,8 +9,8 @@ load_dotenv()
 
 # ── Gemini API - Dual Key with Automatic Fallback ─────────────────────────────
 # Primary key used first; on quota/error automatically rotates to secondary key
-GEMINI_API_KEY   = os.getenv("GEMINI_API_KEY_1", "AIzaSyCjBOLdQLG1N2ZZj0ZnlXnxOe54BuJyev8")
-GEMINI_API_KEY_2 = os.getenv("GEMINI_API_KEY_2", "AIzaSyBtjBhwRpSZwounmEVYl7eEJZGuW6UPY7c")
+GEMINI_API_KEY   = os.getenv("GEMINI_API_KEY_1", "")
+GEMINI_API_KEY_2 = os.getenv("GEMINI_API_KEY_2", "")
 GEMINI_API_KEYS  = [GEMINI_API_KEY, GEMINI_API_KEY_2]   # rotation list
 MODEL_NAME       = "gemini-3.1-flash-lite-preview"
 MODEL            = MODEL_NAME   # alias so both names resolve
