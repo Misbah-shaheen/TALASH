@@ -1,16 +1,44 @@
-# TALASH — Pre-Processing Module
 
-**Talent Acquisition & Learning Automation for Smart Hiring**  
-CS417 – LLMs, Spring 2026 · BSDS-2K23
+# TALASH — Talent Acquisition & Learning Automation for Smart Hiring
+
+> **AI-powered academic recruitment pipeline** for NUST (National University of Sciences and Technology). Extracts, verifies, analyzes, and ranks candidate CVs with zero manual effort.
 
 ---
 
-## What This Module Does
+## What It Does
 
-Takes a folder of raw PDF CVs (specifically NUST HR portal form exports) and outputs:
-- A **multi-sheet Excel workbook** — one sheet per relational table
-- **JSON cache files** per candidate (for debugging and module 2 reuse)
-- Optional **missing-info email drafts** per candidate
+TALASH reads PDF CVs, extracts structured candidate data using Google Gemini, runs 9 analytical modules, verifies publications against live academic databases, detects career gaps, and exports everything to a formatted Excel report — automatically.
+
+---
+
+## Features
+
+### 9 Analysis Modules
+| Module | Description |
+|--------|-------------|
+| **3.1 Educational Profile** | Degree levels, institutions, GPA, gap detection |
+| **3.2 Research Profile** | Journals, conferences, HEC W1–W4 ranking, impact factors |
+| **3.3 Student Supervision** | MS/PhD supervision counts, student publications |
+| **3.4 Books Authored** | Book records with publisher and year |
+| **3.5 Patents** | Patent numbers, inventors, verification links, authorship role |
+| **3.6 Topic Variability** | LLM-based clustering of research topics |
+| **3.7 Co-author Analysis** | Recurring collaborators, team size, diversity score |
+| **3.8 Professional Experience** | Overlap/gap detection, career progression, auto email draft |
+| **3.9 Skill Alignment** | LLM-based evidence verification against job requirements |
+
+### Publication Verification (5 Live Checks)
+- **Crossref** — DOI existence and paper verification
+- **Semantic Scholar** — title-based lookup fallback
+- **OpenAlex** — live impact factor retrieval
+- **Beall's List** — predatory journal detection (embedded, no API needed)
+- **HEC Journal List** — W1/W2/W3/W4 category classification (embedded)
+- **Google Patents / SerpAPI** — patent existence verification
+
+### Smart Automation
+- **Dual Gemini API key** with automatic quota rotation and fallback
+- **Checkpoint/resume** — stops and continues without reprocessing completed CVs
+- **Missing-info email drafts** — auto-generates personalised candidate emails when critical fields are absent
+- **Structured Excel output** — multi-sheet workbook with formatted tables, freeze panes, alternating row colours
 
 ---
 
@@ -18,132 +46,202 @@ Takes a folder of raw PDF CVs (specifically NUST HR portal form exports) and out
 
 ```
 talash/
-├── pipeline.py          ← Main entry point — run this
-├── config.py            ← Table schemas, prompts, API config
-├── requirements.txt
-├── .env.example         ← Copy to .env, add your API key
-│
+├── pipeline.py              # Main entry point — orchestrates full pipeline
+├── config.py                # API keys, model settings, SMTP, paths, table schemas
 ├── core/
-│   ├── pdf_parser.py    ← pdfplumber-based text extraction
-│   ├── llm_extractor.py ← Claude API calls, JSON parsing
-│   └── excel_writer.py  ← Multi-sheet openpyxl workbook
-│
-└── utils/
-    └── normalizer.py    ← Dates, salaries, IDs, degree levels
+│   ├── pdf_parser.py        # PDF text extraction (pdfplumber, table-aware)
+│   ├── llm_extractor.py     # Gemini extraction + SMTP email sender
+│   ├── analysis_engine.py   # All 9 analysis modules
+│   ├── excel_writer.py      # Formatted multi-sheet Excel export
+│   ├── verifiers.py         # Live publication/patent verification APIs
+│   └── ranking_verifier.py  # Journal ranking lookup
+├── utils/
+│   └── normalizer.py        # Date, salary, degree normalization + missing field detection
+└── cvs/                     # Drop input PDF CVs here
 ```
 
 ---
 
-## Setup
+## Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/your-org/talash.git
+cd talash
+
+# Install dependencies
 pip install -r requirements.txt
-cp .env.example .env
-# Edit .env → add your ANTHROPIC_API_KEY
+```
+
+**Requirements:**
+```
+google-generativeai
+pdfplumber
+openpyxl
+requests
+python-dateutil
 ```
 
 ---
 
-## Running
+## Configuration
+
+Edit `config.py` before running:
+
+```python
+# Gemini API keys (dual-key with auto-rotation on quota hit)
+GEMINI_API_KEY_1 = "your-key-1"
+GEMINI_API_KEY_2 = "your-key-2"
+
+# Model
+MODEL = "gemini-3.1-flash-lite-preview"
+
+# SMTP (optional — for sending missing-info emails)
+SMTP_HOST     = "smtp.gmail.com"
+SMTP_PORT     = 587
+SMTP_USER     = "your@email.com"
+SMTP_PASSWORD = "your-app-password"
+SMTP_ENABLED  = True   # set False to only save drafts locally
+
+# Directories
+INPUT_DIR  = "cvs/"      # folder with PDF CVs
+OUTPUT_DIR = "output/"   # Excel + email drafts saved here
+```
+
+---
+
+## Usage
+
+### Basic — process all CVs and export Excel
 
 ```bash
-# Basic run
-python pipeline.py --input ./cvs --output ./output
+python pipeline.py --input cvs/ --output output/
+```
 
-# With missing-info emails
-python pipeline.py --input ./cvs --output ./output --emails
+### With missing-info email generation
 
-# Resume interrupted run (skips already-processed PDFs)
-python pipeline.py --input ./cvs --output ./output --resume
+```bash
+python pipeline.py --input cvs/ --output output/ --emails
+```
 
-# Slower rate (if hitting API limits)
-python pipeline.py --input ./cvs --output ./output --delay 3.0
+### Resume an interrupted run (skips already-processed CVs)
+
+```bash
+python pipeline.py --input cvs/ --output output/ --resume
+```
+
+### All options
+
+```bash
+python pipeline.py \
+  --input  cvs/          \   # folder containing PDF CVs
+  --output output/       \   # destination for Excel + email files
+  --emails               \   # generate missing-info email drafts
+  --resume               \   # resume from checkpoint
+  --delay  2             \   # seconds between Gemini API calls (default: 2)
 ```
 
 ---
 
 ## Output
 
+### Excel Workbook (`output/talash_results.xlsx`)
+Each section is exported as a separate sheet:
+
+| Sheet | Contents |
+|-------|----------|
+| `Candidates` | Personal info, scores, flags for all candidates |
+| `Education` | Degree records with gap flags and duration |
+| `Experience` | Employment history with overlap/gap detection |
+| `Publications` | Papers with venue, HEC rank, impact factor, predatory flag |
+| `Supervision` | Student supervision records |
+| `Patents` | Patent records with verification status |
+| `Skills` | Skill alignment scores with evidence level |
+
+### Email Drafts (`output/missing_email_<candidate_id>.txt`)
+Automatically generated when a candidate CV is missing critical fields such as:
+- Date of birth, CNIC, phone, email
+- Education records or degree sub-fields
+- Employment start dates or organisation names
+- Claimed publications with incomplete entries
+
+---
+
+## How the Pipeline Works
+
 ```
-output/
-├── TALASH_Candidates.xlsx     ← Main deliverable
-│   ├── 📖 Data Dictionary
-│   ├── 📋 Personal Info       (1 row per candidate)
-│   ├── 🎓 Education           (N rows per candidate)
-│   ├── 💼 Experience
-│   ├── 📄 Publications
-│   ├── 🛠 Skills
-│   ├── 🔬 Patents
-│   ├── 📚 Books
-│   ├── 🏆 Awards
-│   └── 👥 References
-│
-├── raw_json/
-│   ├── candidate_001.json     ← Full JSON per candidate (for analysis modules)
-│   └── ...
-│
-├── email_cand_002.txt         ← Missing-info emails (if --emails flag used)
-└── .checkpoint.json           ← Resume checkpoint
+PDF CVs (input/)
+     │
+     ▼
+PDF Parser          ← pdfplumber, table-aware extraction
+     │
+     ▼
+LLM Extractor       ← Gemini API, dual-key fallback, structured JSON output
+     │
+     ▼
+Normalizer          ← dates, salaries, degrees, missing field detection
+     │
+     ▼
+Analysis Engine     ← 9 modules: education, research, experience, skills...
+     │
+     ├──▶ Verifiers     ← Crossref, OpenAlex, Semantic Scholar, HEC, Beall's
+     │
+     ├──▶ Email Drafts  ← LLM-written personalised missing-info emails
+     │
+     ▼
+Excel Writer        ← Multi-sheet formatted workbook
+     │
+     ▼
+output/talash_results.xlsx
 ```
 
 ---
 
-## Relational Schema
+## Missing Info Email System
 
-All tables are linked via `candidate_id` (FK → `personal_info.candidate_id`).
+When a CV is incomplete, TALASH auto-drafts a professional email to the candidate:
 
-| Table | PK | Key Fields |
-|---|---|---|
-| personal_info | candidate_id | name, salary, employment, apply_date |
-| education | record_id | degree_level, institution, GPA, year |
-| experience | record_id | job_title, org, start/end, duration_months |
-| publications | record_id | pub_type, venue, impact_factor_claimed, authorship_role |
-| skills | record_id | skill_name, category, evidence_level* |
-| patents | record_id | patent_number, country, is_lead_inventor |
-| books | record_id | publisher, isbn, authorship_role |
-| awards | record_id | award_type, issuing_body |
-| references | record_id | ref_name, designation, contact |
+1. `detect_missing_fields()` scans extracted data for empty critical fields
+2. If any are found and `--emails` flag is set, `build_missing_info_email()` calls Gemini to write a personalised, polite clarification email
+3. The draft is saved to `output/missing_email_<candidate_id>.txt`
+4. If SMTP is enabled in `config.py`, it is sent automatically
 
-*`evidence_level` filled by M2 Skill Alignment module.
+Fields checked: full name, date of birth, current salary, email, phone, CNIC, post applied for, education records, experience records, and claimed publications.
 
 ---
 
-## Design Decisions
+## API Credits
 
-### Why LLM extraction instead of regex?
+All verification APIs used are **free and require no authentication key** except Gemini:
 
-The NUST HR form uses a two-column layout that breaks standard PDF text extraction order. LLMs handle this gracefully — they understand semantic context regardless of spatial layout.
+| API | Purpose |
+|-----|---------|
+| [Crossref](https://www.crossref.org/documentation/retrieve-metadata/rest-api/) | DOI and paper verification |
+| [Semantic Scholar](https://www.semanticscholar.org/product/api) | Title-based paper lookup |
+| [OpenAlex](https://openalex.org/) | Impact factors, journal metadata |
+| [Google Gemini](https://ai.google.dev/) | CV extraction, email drafting, analysis |
 
-### Why cached JSON?
-
-Each LLM call costs money. The `raw_json/` cache means analysis modules (M2/M3) can reload data without re-calling the API.
-
-### Why `impact_factor_claimed` not `impact_factor_verified`?
-
-Per the project spec, Research Profile Analysis (Module 2) must verify impact factors from external sources (WoS/Scopus), not trust CV self-reporting. This module only extracts what the candidate claimed.
-
-### Salary normalization
-
-Some candidates enter salary in thousands (e.g., "200" meaning PKR 200,000). The normalizer detects values < 5,000 and multiplies by 1,000.
+Beall's predatory journal list and HEC W1–W4 journal categories are embedded directly — no internet required for those checks.
 
 ---
 
-## Notes for Analysis Modules (M2/M3)
+## Notes
 
-Load the JSON cache to avoid re-parsing PDFs:
+- Scanned/image PDFs with no extractable text are flagged and skipped automatically
+- All API calls include polite delays and retry logic to respect rate limits
+- The checkpoint file (`.checkpoint.json`) is saved after each CV so a crash loses at most one candidate
+- SMTP credentials are only needed if you want emails sent automatically; otherwise drafts are saved as `.txt` files
 
-```python
-import json
-from pathlib import Path
+---
 
-candidates = []
-for f in Path("output/raw_json").glob("*.json"):
-    candidates.append(json.loads(f.read_text()))
+## Contributors
 
-# Access structured data
-for c in candidates:
-    name = c["personal_info"]["full_name"]
-    pubs = c["publications"]
-    for pub in pubs:
-        print(pub["title"], pub["impact_factor_claimed"])
-```
+- **Misbah Shaheen** 
+- **Hareem Fatima**
+  GitHub: [HareemFatima5](https://github.com/HareemFatima5)
+
+---
+
+## License
+
+Internal use — NUST TALASH Recruitment System.
